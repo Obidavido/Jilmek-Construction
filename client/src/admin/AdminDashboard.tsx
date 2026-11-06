@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { mediaUrl } from "@/lib/media";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -271,7 +272,7 @@ export default function AdminDashboard() {
             On desktop each link also shows what the section holds and a live count. */}
         <nav className="adm-tabbar" aria-label="Dashboard sections">
           <div className="adm-tabbar-brand">
-            <img src="/images/logo_22da56e1.png" alt="JILMEK Roofing & Construction Ltd" />
+            <img src={mediaUrl("logo_22da56e1.png")} alt="JILMEK Roofing & Construction Ltd" />
           </div>
           {TABS.map(({ id, label, icon: Icon, detail }) => {
             const count = tabCounts[id];

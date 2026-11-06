@@ -1,3 +1,5 @@
+import { mediaUrl } from "./media";
+
 export type MockRoofingProduct = {
   id: number;
   name: string;
@@ -24,7 +26,7 @@ export type MockPropertyListing = {
   isFeatured: boolean;
 };
 
-const image = (name: string) => `/images/${name}`;
+const image = (name: string) => mediaUrl(name);
 
 export const mockRoofingProducts: MockRoofingProduct[] = [
   { id: -101, name: "Long Span", profile: "Clean modern profile", description: "A practical, versatile sheet profile for residential and commercial rooflines.", imageUrl: image("hero-red-roof_78e57ca6.jpeg"), imageKey: null, isPublished: true, isFeatured: true, sortOrder: 1 },
