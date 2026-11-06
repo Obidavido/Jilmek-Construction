@@ -1,5 +1,5 @@
 const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
-const configuredProjectMediaBase = (import.meta.env.VITE_MEDIA_BASE_URL ?? configuredApiBase.replace(/\/api\/v1$/, "")).replace(/\/$/, "");
+const configuredProjectMediaBase = (import.meta.env.VITE_MEDIA_BASE_URL ?? configuredApiBase.replace(/\/api$/, "")).replace(/\/$/, "");
 
 /**
  * Resolve normal site assets from the Vercel frontend bundle.
