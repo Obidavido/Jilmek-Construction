@@ -6,7 +6,7 @@
  * the contact form are fully usable (and demo-able to the client) without a
  * server.
  *
- * To go live: set VITE_API_BASE_URL in your .env (e.g. https://api.jilmekroofingandconstruction.com/api/v1)
+ * To go live: set VITE_API_BASE_URL in your .env (e.g. https://api.jilmekroofingandconstruction.com/api)
  * and implement the endpoints listed in API_CONTRACT below. Nothing else in the
  * app needs to change — `isLiveApi` flips automatically and the demo store is
  * bypassed.
@@ -16,10 +16,10 @@ export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/,
 export const isLiveApi = API_BASE.length > 0;
 
 export const API_CONTRACT = [
-  "POST   /api/enquiries            create (public)",
-  "GET    /api/enquiries            list (admin)",
-  "PATCH  /api/enquiries/:id        update read state / status (admin)",
-  "DELETE /api/enquiries/:id        remove (admin)",
+  "POST   /api/enquiries         create (public)",
+  "GET    /api/enquiries         list (admin)",
+  "PATCH  /api/enquiries/:id     update status (admin)",
+  "DELETE /api/enquiries/:id     remove (admin)",
   "GET    /api/products             list",
   "POST   /api/products             create (admin)",
   "PUT    /api/products/:id         update (admin)",
@@ -31,13 +31,9 @@ export const API_CONTRACT = [
   "GET    /api/media                list uploaded files (admin)",
   "POST   /api/media                multipart upload -> { url, key } (admin)",
   "DELETE /api/media/:key           delete (admin)",
-  "GET    /api/testimonials         list",
-  "POST   /api/testimonials         create (admin)",
-  "PUT    /api/testimonials/:id     update (admin)",
-  "DELETE /api/testimonials/:id     delete (admin)",
-  "POST   /api/auth/login           { password } -> session cookie",
-  "POST   /api/auth/logout          invalidate session",
-  "GET    /api/auth/me              current admin or 401",
+  "POST   /api/auth/login        { email, password } -> JWT",
+  "GET    /api/auth/me           current admin or 401",
+  "POST   /api/projects/:slug/images  attach project image (admin)",
 ];
 
 /* ------------------------------------------------------------------ types */
@@ -76,6 +72,8 @@ export type EnquiryInput = Omit<Enquiry, "id" | "status" | "isRead" | "createdAt
 
 /* ------------------------------------------------------- demo store (local) */
 
+export const AUTH_TOKEN_KEY = "jilmek.admin.jwt";
+
 const KEY = {
   enquiries: "jilmek.demo.enquiries",
   media: "jilmek.demo.media",
@@ -102,20 +100,75 @@ function write<T>(key: string, value: T) {
 /* --------------------------------------------------------------- transport */
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json" },
-    ...init,
+  const headers = new Headers(init?.headers);
+  if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  try {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  } catch {
+    // sessionStorage may be unavailable in private browsing.
+  }
+  const response = await fetch(`${API_BASE}${path}`, { credentials: "include", ...init, headers });
+  const payload = (await response.json()) as { success?: boolean; data?: T; error?: { message?: string } };
+  if (!response.ok || payload.success === false) throw new Error(payload.error?.message ?? `${response.status} ${response.statusText}`);
+  return (payload.success === true && "data" in payload ? payload.data : payload) as T;
+}
+
+export type AdminUser = { id: number; email: string; role: string };
+export async function loginAdmin(email: string, password: string): Promise<AdminUser> {
+  const response = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return (await response.json()) as T;
+  const payload = (await response.json()) as { success?: boolean; data?: { access_token: string; user: AdminUser }; error?: { message?: string } };
+  if (!response.ok || !payload.success || !payload.data?.access_token) throw new Error(payload.error?.message ?? "Sign in failed.");
+  sessionStorage.setItem(AUTH_TOKEN_KEY, payload.data.access_token);
+  return payload.data.user;
+}
+export async function getAdminMe(): Promise<AdminUser> {
+  return request<AdminUser>("/auth/me");
+}
+export function clearAdminToken(): void {
+  try { sessionStorage.removeItem(AUTH_TOKEN_KEY); } catch { /* ignore */ }
 }
 
 /* -------------------------------------------------------------- enquiries */
+function normalizeEnquiry(raw: any): Enquiry {
+  const statusMap: Record<string, Enquiry["status"]> = {
+    new: "New", contacted: "Contacted", in_progress: "Contacted", quoted: "Contacted", won: "Closed", closed: "Closed", spam: "Closed",
+  };
+  return {
+    id: Number(raw.id),
+    name: raw.name ?? raw.full_name ?? "",
+    phone: raw.phone ?? "",
+    email: raw.email ?? "",
+    location: raw.location ?? "",
+    service: raw.service ?? raw.service_needed ?? "",
+    message: raw.message ?? "",
+    preferred: raw.preferred ?? raw.preferred_contact_method ?? "Phone",
+    status: statusMap[String(raw.status ?? "new").toLowerCase()] ?? "New",
+    isRead: Boolean(raw.isRead ?? raw.is_read ?? false),
+    createdAt: raw.createdAt ?? raw.created_at ?? new Date().toISOString(),
+  };
+}
 
 export async function createEnquiry(input: EnquiryInput): Promise<Enquiry> {
   if (isLiveApi) {
-    return request<Enquiry>("/api/v1/enquiries", { method: "POST", body: JSON.stringify(input) });
+    const result = await request<{ reference_code?: string }>("/enquiries", {
+      method: "POST",
+      body: JSON.stringify({
+        full_name: input.name,
+        phone: input.phone,
+        email: input.email || null,
+        location: input.location,
+        service_needed: input.service,
+        message: input.message,
+        preferred_contact_method: input.preferred,
+        source_page: window.location.pathname,
+      }),
+    });
+    return normalizeEnquiry({ ...input, id: Date.now(), status: "new", created_at: new Date().toISOString(), reference_code: result.reference_code });
   }
   const list = read<Enquiry[]>(KEY.enquiries, []);
   const next: Enquiry = {
@@ -130,13 +183,16 @@ export async function createEnquiry(input: EnquiryInput): Promise<Enquiry> {
 }
 
 export async function listEnquiries(): Promise<Enquiry[]> {
-  if (isLiveApi) return request<Enquiry[]>("/api/v1/enquiries");
+  if (isLiveApi) return (await request<any[]>("/enquiries")).map(normalizeEnquiry);
   return read<Enquiry[]>(KEY.enquiries, []);
 }
 
 export async function updateEnquiry(id: number, patch: Partial<Enquiry>): Promise<Enquiry> {
   if (isLiveApi) {
-    return request<Enquiry>(`/api/v1/enquiries/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+    if (!patch.status) return { ...(read<Enquiry[]>(KEY.enquiries, []).find((item) => item.id === id) ?? { id, name: "", phone: "", email: "", location: "", service: "", message: "", preferred: "Phone", status: "New" as const, isRead: false, createdAt: new Date().toISOString() }), ...patch };
+    const statusMap: Record<Enquiry["status"], string> = { New: "new", Contacted: "contacted", Closed: "closed" };
+    const result = await request<any>(`/enquiries/${id}`, { method: "PATCH", body: JSON.stringify({ status: statusMap[patch.status] }) });
+    return normalizeEnquiry({ ...result, id, status: patch.status });
   }
   const list = read<Enquiry[]>(KEY.enquiries, []);
   const next = list.map((item) => (item.id === id ? { ...item, ...patch } : item));
@@ -146,7 +202,7 @@ export async function updateEnquiry(id: number, patch: Partial<Enquiry>): Promis
 
 export async function deleteEnquiry(id: number): Promise<void> {
   if (isLiveApi) {
-    await request(`/api/v1/enquiries/${id}`, { method: "DELETE" });
+    await request(`/enquiries/${id}`, { method: "DELETE" });
     return;
   }
   write(KEY.enquiries, read<Enquiry[]>(KEY.enquiries, []).filter((item) => item.id !== id));
@@ -179,7 +235,7 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 }
 
 export async function listMedia(): Promise<MediaItem[]> {
-  if (isLiveApi) return request<MediaItem[]>("/api/v1/media");
+  if (isLiveApi) return request<MediaItem[]>("/media");
   return read<MediaItem[]>(KEY.media, []);
 }
 
@@ -189,7 +245,7 @@ export async function uploadMedia(file: File): Promise<MediaItem> {
   if (isLiveApi) {
     const body = new FormData();
     body.append("file", compressed, file.name);
-    return request<MediaItem>("/api/v1/media", { method: "POST", body });
+    return request<MediaItem>("/media", { method: "POST", body });
   }
 
   // Demo mode: keep the image as a data URL so it survives a page reload.
@@ -212,7 +268,7 @@ export async function uploadMedia(file: File): Promise<MediaItem> {
 
 export async function deleteMedia(key: string): Promise<void> {
   if (isLiveApi) {
-    await request(`/api/v1/media/${encodeURIComponent(key)}`, { method: "DELETE" });
+    await request(`/media/${encodeURIComponent(key)}`, { method: "DELETE" });
     return;
   }
   write(KEY.media, read<MediaItem[]>(KEY.media, []).filter((item) => item.key !== key));
@@ -222,17 +278,11 @@ export async function deleteMedia(key: string): Promise<void> {
 
 const seedTestimonials: Testimonial[] = [];
 
+// Testimonials intentionally remain frontend-local; they are not sent to or read from the API.
 export async function listTestimonials(): Promise<Testimonial[]> {
-  if (isLiveApi) return request<Testimonial[]>("/api/v1/testimonials");
   return read<Testimonial[]>(KEY.testimonials, seedTestimonials);
 }
-
 export async function saveTestimonial(input: Omit<Testimonial, "id"> & { id?: number }): Promise<Testimonial> {
-  if (isLiveApi) {
-    return input.id
-      ? request<Testimonial>(`/api/v1/testimonials/${input.id}`, { method: "PUT", body: JSON.stringify(input) })
-      : request<Testimonial>("/api/v1/testimonials", { method: "POST", body: JSON.stringify(input) });
-  }
   const list = read<Testimonial[]>(KEY.testimonials, seedTestimonials);
   const next: Testimonial = { ...input, id: input.id ?? Date.now() };
   write(KEY.testimonials, input.id ? list.map((t) => (t.id === input.id ? next : t)) : [next, ...list]);
@@ -240,12 +290,5 @@ export async function saveTestimonial(input: Omit<Testimonial, "id"> & { id?: nu
 }
 
 export async function deleteTestimonial(id: number): Promise<void> {
-  if (isLiveApi) {
-    await request(`/api/v1/testimonials/${id}`, { method: "DELETE" });
-    return;
-  }
-  write(
-    KEY.testimonials,
-    read<Testimonial[]>(KEY.testimonials, seedTestimonials).filter((t) => t.id !== id),
-  );
+  write(KEY.testimonials, read<Testimonial[]>(KEY.testimonials, seedTestimonials).filter((t) => t.id !== id));
 }

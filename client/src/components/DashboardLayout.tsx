@@ -1,6 +1,6 @@
-import { DEMO_PASSWORD, useAuth } from "@/_core/hooks/useAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { mediaUrl } from "@/lib/media";
-import { Eye, EyeOff, Lock, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 /**
@@ -30,95 +30,51 @@ export default function DashboardLayout({
 }
 
 function AdminLogin() {
-  const { login } = useAuth();
-  // If a real VITE_ADMIN_PASSWORD is set for this deployment, the demo
-  // password no longer works — don't pre-fill it or claim "any password
-  // works", or sign-in will look broken (see useAuth.ts).
-  const configured = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined;
-  const isDemo = !configured || configured.length === 0;
-
-  const [password, setPassword] = useState(isDemo ? DEMO_PASSWORD : "");
-  const [visible, setVisible] = useState(isDemo);
+  const { login, loading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const ok = login(password);
-    setError(ok ? null : isDemo ? "Enter a password to continue." : "Incorrect password.");
+    const ok = await login(email, password);
+    setError(ok ? null : "Email or password is incorrect.");
   };
-
   return (
     <div className="adm-login">
       <div className="adm-login-image">
-        <img
-          src={mediaUrl("hero-red-roof_78e57ca6.jpeg")}
-          alt="Completed JILMEK residence with a finished blue hip roof"
-        />
+        <img src={mediaUrl("hero-red-roof_78e57ca6.jpeg")} alt="Completed JILMEK residence with a finished blue hip roof" />
         <div className="adm-login-image-overlay" />
         <div className="adm-login-image-content">
-          <img
-            className="adm-login-logo"
-            src={mediaUrl("logo_22da56e1.png")}
-            alt="JILMEK Roofing & Construction Ltd"
-            style={{ width: 168, maxWidth: 168, height: "auto" }}
-          />
+          <img className="adm-login-logo" src={mediaUrl("logo_22da56e1.png")} alt="JILMEK Roofing & Construction Ltd" style={{ width: 168, maxWidth: 168, height: "auto" }} />
           <h2>Content studio</h2>
-          <p>Manage roofing products, listings, photos and enquiries without touching code.</p>
+          <p>Manage project images and enquiries through the protected API dashboard.</p>
         </div>
       </div>
-
       <div className="adm-login-panel">
         <form onSubmit={handleSubmit} className="adm-login-form">
-          <img
-            className="adm-login-logo adm-login-logo-mobile"
-            src={mediaUrl("logo_22da56e1.png")}
-            alt="JILMEK Roofing & Construction Ltd"
-            style={{ width: 120, maxWidth: 120, height: "auto" }}
-          />
-
+          <img className="adm-login-logo adm-login-logo-mobile" src={mediaUrl("logo_22da56e1.png")} alt="JILMEK Roofing & Construction Ltd" style={{ width: 120, maxWidth: 120, height: "auto" }} />
           <div className="adm-login-heading">
             <h1>Sign in to continue</h1>
-            <p>This dashboard is still in development — sign-in here is a placeholder, not real security.</p>
+            <p>Use your administrator email and password.</p>
           </div>
-
-          {isDemo && (
-            <div className="adm-login-notice">
-              <ShieldAlert size={16} />
-              <span>
-                Demo mode: any password works. The field below is pre-filled with <b>{DEMO_PASSWORD}</b> so you can
-                just hit sign in.
-              </span>
+          <label className="adm-login-field">
+            <span>Email</span>
+            <div className="adm-login-input">
+              <Mail size={16} />
+              <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@example.com" autoComplete="username" autoFocus />
             </div>
-          )}
-
+          </label>
           <label className="adm-login-field">
             <span>Password</span>
             <div className="adm-login-input">
               <Lock size={16} />
-              <input
-                type={visible ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Admin password"
-                autoFocus
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                className="adm-login-toggle"
-                onClick={() => setVisible((value) => !value)}
-                aria-label={visible ? "Hide password" : "Show password"}
-              >
-                {visible ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              <input type={visible ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Admin password" autoComplete="current-password" />
+              <button type="button" className="adm-login-toggle" onClick={() => setVisible((value) => !value)} aria-label={visible ? "Hide password" : "Show password"}>{visible ? <EyeOff size={16} /> : <Eye size={16} />}</button>
             </div>
           </label>
-
           {error && <p className="adm-login-error">{error}</p>}
-
-          <button type="submit" className="adm-primary full adm-login-submit">
-            Sign in
-          </button>
+          <button type="submit" className="adm-primary full adm-login-submit" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</button>
         </form>
       </div>
     </div>

@@ -1,100 +1,51 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { API_BASE, AUTH_TOKEN_KEY, clearAdminToken, getAdminMe, loginAdmin, AdminUser } from "@/lib/api";
 
-/**
- * Lightweight client-only admin gate for the /admin dashboard.
- *
- * There is no backend yet, and this dashboard is still in active
- * development, so the "login" here is intentionally NOT real security —
- * it's just a screen so the dashboard isn't wide open with no gate at all.
- * The demo password is shown right on the login screen rather than hidden,
- * and any non-empty value is accepted once a real VITE_ADMIN_PASSWORD isn't
- * set, so testing this never blocks anyone on the team.
- *
- * This is a tiny shared external store (not plain useState) on purpose:
- * useAuth() is called from several places (DashboardLayout, AdminDashboard's
- * topbar, etc). Plain useState would give each caller its own disconnected
- * copy of "am I logged in", so logging out in one place wouldn't be seen by
- * another — that's what caused the blank white screen after logout. Every
- * caller now reads/writes the same value.
- *
- * Replace this with real PHP-backed authentication (sessions/JWT issued by
- * your PHP API) before this dashboard handles real client data.
- */
-
-const STORAGE_KEY = "jilmek-admin-authed";
-export const DEMO_PASSWORD = "jilmek2026";
-
-export type AdminUser = { name: string; email: string };
-
-const ADMIN_USER: AdminUser = { name: "Admin", email: "admin@jilmek.local" };
-
-function readStoredAuth(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return sessionStorage.getItem(STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-let authed = readStoredAuth();
+let currentUser: AdminUser | null = null;
+let authed = false;
+let loading = false;
+let hydrated = false;
 const listeners = new Set<() => void>();
-
-function setAuthed(value: boolean) {
-  authed = value;
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot() {
-  return authed;
-}
-
-function getServerSnapshot() {
-  return false;
-}
+function notify() { listeners.forEach((listener) => listener()); }
+function subscribe(listener: () => void) { listeners.add(listener); return () => listeners.delete(listener); }
+function getSnapshot() { return `${authed}:${loading}:${currentUser?.id ?? ""}`; }
+function getServerSnapshot() { return "false:false:"; }
 
 export function useAuth() {
-  const isAuthenticated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  const login = useCallback((password: string) => {
-    const configured = import.meta.env.VITE_ADMIN_PASSWORD as string | undefined;
-    // Dev mode: no password configured yet, so anything non-empty gets in —
-    // this dashboard has no real data behind it until the PHP API exists.
-    const expected = configured && configured.length > 0 ? configured : DEMO_PASSWORD;
-    const ok = password.trim().length > 0 && (password === expected || !configured);
-    if (ok) {
-      try {
-        sessionStorage.setItem(STORAGE_KEY, "1");
-      } catch {
-        // sessionStorage unavailable (e.g. private browsing) — still allow
-        // access for this render, it just won't persist across reloads.
-      }
-      setAuthed(true);
-    }
-    return ok;
+  useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useEffect(() => {
+    if (hydrated || !API_BASE) return;
+    hydrated = true;
+    let token = "";
+    try { token = sessionStorage.getItem(AUTH_TOKEN_KEY) ?? ""; } catch { /* ignore */ }
+    if (!token) return;
+    loading = true;
+    notify();
+    getAdminMe().then((user) => { currentUser = user; authed = true; }).catch(() => { clearAdminToken(); }).finally(() => { loading = false; notify(); });
   }, []);
-
-  const logout = useCallback(() => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    if (!API_BASE) return false;
+    loading = true;
+    notify();
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      currentUser = await loginAdmin(email, password);
+      authed = true;
+      return true;
     } catch {
-      // ignore
+      currentUser = null;
+      authed = false;
+      clearAdminToken();
+      return false;
+    } finally {
+      loading = false;
+      notify();
     }
-    setAuthed(false);
   }, []);
-
-  return {
-    user: isAuthenticated ? ADMIN_USER : null,
-    loading: false as const,
-    error: null as null,
-    isAuthenticated,
-    login,
-    logout,
-    refresh: () => {},
-  };
+  const logout = useCallback(() => {
+    clearAdminToken();
+    currentUser = null;
+    authed = false;
+    notify();
+  }, []);
+  return { user: currentUser, loading, error: null as null, isAuthenticated: authed, login, logout, refresh: async () => {} };
 }
