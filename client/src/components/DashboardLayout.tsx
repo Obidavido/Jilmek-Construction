@@ -1,4 +1,5 @@
 import { DEMO_PASSWORD, useAuth } from "@/_core/hooks/useAuth";
+import { mediaUrl } from "@/lib/media";
 import { Eye, EyeOff, Lock, ShieldAlert } from "lucide-react";
 import { FormEvent, useState } from "react";
 
@@ -50,14 +51,14 @@ function AdminLogin() {
     <div className="adm-login">
       <div className="adm-login-image">
         <img
-          src="/images/hero-red-roof_78e57ca6.jpeg"
+          src={mediaUrl("hero-red-roof_78e57ca6.jpeg")}
           alt="Completed JILMEK residence with a finished blue hip roof"
         />
         <div className="adm-login-image-overlay" />
         <div className="adm-login-image-content">
           <img
             className="adm-login-logo"
-            src="/images/logo_22da56e1.png"
+            src={mediaUrl("logo_22da56e1.png")}
             alt="JILMEK Roofing & Construction Ltd"
             style={{ width: 168, maxWidth: 168, height: "auto" }}
           />
@@ -70,7 +71,7 @@ function AdminLogin() {
         <form onSubmit={handleSubmit} className="adm-login-form">
           <img
             className="adm-login-logo adm-login-logo-mobile"
-            src="/images/logo_22da56e1.png"
+            src={mediaUrl("logo_22da56e1.png")}
             alt="JILMEK Roofing & Construction Ltd"
             style={{ width: 120, maxWidth: 120, height: "auto" }}
           />

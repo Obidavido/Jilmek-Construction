@@ -13,6 +13,7 @@ import { projectCaseStudies, photosFor } from "@/lib/projects";
 import { injectLocalBusinessSchema, useSeo } from "@/lib/seo";
 import { PHONES, SITE, whatsappLink, DEFAULT_WHATSAPP_MESSAGE } from "@/lib/site";
 import { mockPropertyListings, mockRoofingProducts } from "@/lib/mockCms";
+import { mediaUrl } from "@/lib/media";
 import { Link, Route, Switch, useLocation } from "wouter";
 import {
   ArrowRight,
@@ -35,17 +36,17 @@ import {
 import { toast } from "sonner";
 
 const ASSETS = {
-  logo: "/images/logo_22da56e1.png",
-  hero: "/images/hero-red-roof_78e57ca6.jpeg",
-  pinkRoof: "/images/home-pink-roof_178510ed.jpeg",
-  blueRoof: "/images/home-blue-roof_36d157bc.jpeg",
-  colonnade: "/images/colonnade_cc91d531.jpeg",
-  frame: "/images/construction-frame_e0f41e5a.jpeg",
-  greyHouse: "/images/house-grey_2ed75e58.jpeg",
-  redHouse: "/images/house-red_3d6d39f5.jpeg",
-  tallHouse: "/images/tall-house_60c0ab4a.jpeg",
-  roofFrame: "/images/roof-frame_e50d38a3.jpeg",
-  brickHome: "/images/brick-home_3a6fc288.jpeg",
+  logo: mediaUrl("logo_22da56e1.png"),
+  hero: mediaUrl("hero-red-roof_78e57ca6.jpeg"),
+  pinkRoof: mediaUrl("home-pink-roof_178510ed.jpeg"),
+  blueRoof: mediaUrl("home-blue-roof_36d157bc.jpeg"),
+  colonnade: mediaUrl("colonnade_cc91d531.jpeg"),
+  frame: mediaUrl("construction-frame_e0f41e5a.jpeg"),
+  greyHouse: mediaUrl("house-grey_2ed75e58.jpeg"),
+  redHouse: mediaUrl("house-red_3d6d39f5.jpeg"),
+  tallHouse: mediaUrl("tall-house_60c0ab4a.jpeg"),
+  roofFrame: mediaUrl("roof-frame_e50d38a3.jpeg"),
+  brickHome: mediaUrl("brick-home_3a6fc288.jpeg"),
 };
 const phones = PHONES;
 const navItems = [
