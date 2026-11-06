@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { SITE, PHONES } from "./site";
-import { mediaUrl } from "./media";
+import { projectMediaUrl } from "./media";
 
 /**
  * Per-page SEO for a client-side SPA (C5).
@@ -42,7 +42,7 @@ export function useSeo({ title, description, path, image, jsonLd }: SeoInput) {
   useEffect(() => {
     const fullTitle = title.includes(SITE.shortName) ? title : `${title} | ${SITE.name}`;
     const url = `${SITE.url}${path}`;
-    const resolvedImage = image ?? mediaUrl("projects/red-roof-colonnade-residence.jpeg");
+    const resolvedImage = image ?? projectMediaUrl("projects/red-roof-colonnade-residence.jpeg");
     const ogImage = resolvedImage.startsWith("http") ? resolvedImage : `${SITE.url}${resolvedImage}`;
 
     document.title = fullTitle;
