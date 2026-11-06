@@ -1,12 +1,12 @@
 /**
  * JILMEK API client.
  *
- * The PHP/cPanel backend does not exist yet. Until it does, every call in here
+ * The PHP/cPanel backend is deployed separately. Until the live API base is configured, every call in here
  * falls back to a localStorage-backed "demo store" so the admin dashboard and
  * the contact form are fully usable (and demo-able to the client) without a
  * server.
  *
- * To go live: set VITE_API_BASE_URL in your .env (e.g. https://api.jilmek.com)
+ * To go live: set VITE_API_BASE_URL in your .env (e.g. https://api.jilmekroofingandconstruction.com/api/v1)
  * and implement the endpoints listed in API_CONTRACT below. Nothing else in the
  * app needs to change — `isLiveApi` flips automatically and the demo store is
  * bypassed.
@@ -115,7 +115,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function createEnquiry(input: EnquiryInput): Promise<Enquiry> {
   if (isLiveApi) {
-    return request<Enquiry>("/api/enquiries", { method: "POST", body: JSON.stringify(input) });
+    return request<Enquiry>("/api/v1/enquiries", { method: "POST", body: JSON.stringify(input) });
   }
   const list = read<Enquiry[]>(KEY.enquiries, []);
   const next: Enquiry = {
@@ -130,13 +130,13 @@ export async function createEnquiry(input: EnquiryInput): Promise<Enquiry> {
 }
 
 export async function listEnquiries(): Promise<Enquiry[]> {
-  if (isLiveApi) return request<Enquiry[]>("/api/enquiries");
+  if (isLiveApi) return request<Enquiry[]>("/api/v1/enquiries");
   return read<Enquiry[]>(KEY.enquiries, []);
 }
 
 export async function updateEnquiry(id: number, patch: Partial<Enquiry>): Promise<Enquiry> {
   if (isLiveApi) {
-    return request<Enquiry>(`/api/enquiries/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+    return request<Enquiry>(`/api/v1/enquiries/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
   }
   const list = read<Enquiry[]>(KEY.enquiries, []);
   const next = list.map((item) => (item.id === id ? { ...item, ...patch } : item));
@@ -146,7 +146,7 @@ export async function updateEnquiry(id: number, patch: Partial<Enquiry>): Promis
 
 export async function deleteEnquiry(id: number): Promise<void> {
   if (isLiveApi) {
-    await request(`/api/enquiries/${id}`, { method: "DELETE" });
+    await request(`/api/v1/enquiries/${id}`, { method: "DELETE" });
     return;
   }
   write(KEY.enquiries, read<Enquiry[]>(KEY.enquiries, []).filter((item) => item.id !== id));
@@ -179,7 +179,7 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 }
 
 export async function listMedia(): Promise<MediaItem[]> {
-  if (isLiveApi) return request<MediaItem[]>("/api/media");
+  if (isLiveApi) return request<MediaItem[]>("/api/v1/media");
   return read<MediaItem[]>(KEY.media, []);
 }
 
@@ -189,7 +189,7 @@ export async function uploadMedia(file: File): Promise<MediaItem> {
   if (isLiveApi) {
     const body = new FormData();
     body.append("file", compressed, file.name);
-    return request<MediaItem>("/api/media", { method: "POST", body });
+    return request<MediaItem>("/api/v1/media", { method: "POST", body });
   }
 
   // Demo mode: keep the image as a data URL so it survives a page reload.
@@ -212,7 +212,7 @@ export async function uploadMedia(file: File): Promise<MediaItem> {
 
 export async function deleteMedia(key: string): Promise<void> {
   if (isLiveApi) {
-    await request(`/api/media/${encodeURIComponent(key)}`, { method: "DELETE" });
+    await request(`/api/v1/media/${encodeURIComponent(key)}`, { method: "DELETE" });
     return;
   }
   write(KEY.media, read<MediaItem[]>(KEY.media, []).filter((item) => item.key !== key));
@@ -223,15 +223,15 @@ export async function deleteMedia(key: string): Promise<void> {
 const seedTestimonials: Testimonial[] = [];
 
 export async function listTestimonials(): Promise<Testimonial[]> {
-  if (isLiveApi) return request<Testimonial[]>("/api/testimonials");
+  if (isLiveApi) return request<Testimonial[]>("/api/v1/testimonials");
   return read<Testimonial[]>(KEY.testimonials, seedTestimonials);
 }
 
 export async function saveTestimonial(input: Omit<Testimonial, "id"> & { id?: number }): Promise<Testimonial> {
   if (isLiveApi) {
     return input.id
-      ? request<Testimonial>(`/api/testimonials/${input.id}`, { method: "PUT", body: JSON.stringify(input) })
-      : request<Testimonial>("/api/testimonials", { method: "POST", body: JSON.stringify(input) });
+      ? request<Testimonial>(`/api/v1/testimonials/${input.id}`, { method: "PUT", body: JSON.stringify(input) })
+      : request<Testimonial>("/api/v1/testimonials", { method: "POST", body: JSON.stringify(input) });
   }
   const list = read<Testimonial[]>(KEY.testimonials, seedTestimonials);
   const next: Testimonial = { ...input, id: input.id ?? Date.now() };
@@ -241,7 +241,7 @@ export async function saveTestimonial(input: Omit<Testimonial, "id"> & { id?: nu
 
 export async function deleteTestimonial(id: number): Promise<void> {
   if (isLiveApi) {
-    await request(`/api/testimonials/${id}`, { method: "DELETE" });
+    await request(`/api/v1/testimonials/${id}`, { method: "DELETE" });
     return;
   }
   write(
